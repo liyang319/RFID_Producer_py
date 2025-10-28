@@ -8,7 +8,7 @@ class RFIDProductionSystem:
     def __init__(self, root):
         self.root = root
         self.root.title("RFID贴标生产系统")
-        self.root.geometry("900x700")
+        self.root.geometry("700x500")
         self.root.configure(bg='#f0f0f0')
         self.root.resizable(True, True)
 
@@ -53,7 +53,7 @@ class RFIDProductionSystem:
         tk.Label(row1_frame, text="设备号:", font=("微软雅黑", 10),
                  bg='white').pack(side='left', padx=(0, 5))
         tk.Label(row1_frame, text="1234567890ABCDEFGH", font=("微软雅黑", 10, "bold"),
-                 bg='white', fg='#2c3e50').pack(side='left', padx=(0, 20))
+                 bg='white', fg='#2c3e50').pack(side='left', padx=(0, 173))  # 增加间距
 
         # 软件版本
         tk.Label(row1_frame, text="软件版本:", font=("微软雅黑", 10),
@@ -69,7 +69,7 @@ class RFIDProductionSystem:
         tk.Label(row2_frame, text="当前位置:", font=("微软雅黑", 10),
                  bg='white').pack(side='left', padx=(0, 5))
         tk.Label(row2_frame, text="经度116.3918173°,纬度39.9797956°",
-                 font=("微软雅黑", 10), bg='white', fg='#2c3e50').pack(side='left')
+                 font=("微软雅黑", 10), bg='white', fg='#2c3e50').pack(side='left', padx=(0, 110))  # 增加间距
 
         self.time_label = tk.Label(row2_frame, text="", font=("微软雅黑", 10),
                                    bg='white', fg='#2c3e50')
