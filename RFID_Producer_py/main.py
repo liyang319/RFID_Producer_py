@@ -22,7 +22,7 @@ class RFIDProductionSystem:
         # 创建界面
         # self.create_title_section()
         self.create_device_info_section()
-        self.create_tray_info_section()
+        self.create_rfid_info_section()
         self.create_production_stats_section()
         self.create_status_control_section()
 
@@ -71,53 +71,53 @@ class RFIDProductionSystem:
         tk.Label(row2_frame, text="经度116.3918173°,纬度39.9797956°",
                  font=("微软雅黑", 10), bg='white', fg='#2c3e50').pack(side='left')
 
-        # 第三行信息 - 当前时间
-        row3_frame = tk.Frame(info_frame, bg='white')
-        row3_frame.pack(fill='x', padx=10, pady=5)
-
-        self.time_label = tk.Label(row3_frame, text="", font=("微软雅黑", 10),
-                                   bg='white', fg='#e74c3c')
+        self.time_label = tk.Label(row2_frame, text="", font=("微软雅黑", 10),
+                                   bg='white', fg='#2c3e50')
         self.time_label.pack(side='left')
 
-    def create_tray_info_section(self):
-        """创建托盘信息区域"""
-        tray_frame = tk.LabelFrame(self.root, text="托盘信息",
+    def create_rfid_info_section(self):
+        """创建RFID信息区域"""
+        tray_frame = tk.LabelFrame(self.root, text="标签信息",
                                    font=("微软雅黑", 12, "bold"),
                                    bg='white', bd=2, relief='groove',
                                    fg='#2c3e50')
         tray_frame.pack(fill='both', expand=True, padx=15, pady=10)
 
+        # 第一行：托盘编号和托盘装载货物数量
+        row1_frame = tk.Frame(tray_frame, bg='white')
+        row1_frame.grid(row=0, column=0, columnspan=2, sticky='w', padx=10, pady=10)
+
         # 托盘编号
-        tk.Label(tray_frame, text="托盘编号:", font=("微软雅黑", 10),
-                 bg='white').grid(row=0, column=0, sticky='w', padx=10, pady=10)
-        self.tray_id_entry = tk.Entry(tray_frame, width=50, font=("微软雅黑", 10),
+        tk.Label(row1_frame, text="托盘编号:", font=("微软雅黑", 10),
+                 bg='white').pack(side='left', padx=(0, 5))
+        self.tray_id_entry = tk.Entry(row1_frame, width=30, font=("微软雅黑", 10),
                                       relief='solid', bd=1)
         self.tray_id_entry.insert(0, "XXXXXXXXXXXXXXX")
-        self.tray_id_entry.grid(row=0, column=1, padx=10, pady=10, sticky='w')
+        self.tray_id_entry.pack(side='left', padx=(0, 40))  # 添加间距
 
         # 托盘装载货物数量
-        tk.Label(tray_frame, text="托盘装载货物数量:", font=("微软雅黑", 10),
-                 bg='white').grid(row=1, column=0, sticky='w', padx=10, pady=10)
-        self.tray_load_entry = tk.Entry(tray_frame, width=15, font=("微软雅黑", 10),
+        tk.Label(row1_frame, text="托盘装载货物数量:", font=("微软雅黑", 10),
+                 bg='white').pack(side='left', padx=(0, 5))
+        self.tray_load_entry = tk.Entry(row1_frame, width=15, font=("微软雅黑", 10),
                                         relief='solid', bd=1)
         self.tray_load_entry.insert(0, "32")
-        self.tray_load_entry.grid(row=1, column=1, padx=10, pady=10, sticky='w')
+        self.tray_load_entry.pack(side='left')
 
         # 取标内容
         tk.Label(tray_frame, text="取标内容:", font=("微软雅黑", 10),
-                 bg='white').grid(row=2, column=0, sticky='nw', padx=10, pady=10)
+                 bg='white').grid(row=1, column=0, sticky='nw', padx=10, pady=10)
         self.fetch_text = tk.Text(tray_frame, width=50, height=4, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
         self.fetch_text.insert("1.0", "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-        self.fetch_text.grid(row=2, column=1, padx=10, pady=10, sticky='w')
+        self.fetch_text.grid(row=1, column=1, padx=10, pady=10, sticky='w')
 
         # 贴标后内容
         tk.Label(tray_frame, text="贴标后内容:", font=("微软雅黑", 10),
-                 bg='white').grid(row=3, column=0, sticky='nw', padx=10, pady=10)
+                 bg='white').grid(row=2, column=0, sticky='nw', padx=10, pady=10)
         self.after_text = tk.Text(tray_frame, width=50, height=4, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
         self.after_text.insert("1.0", "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-        self.after_text.grid(row=3, column=1, padx=10, pady=10, sticky='w')
+        self.after_text.grid(row=2, column=1, padx=10, pady=10, sticky='w')
 
     def create_production_stats_section(self):
         """创建生产统计区域"""
