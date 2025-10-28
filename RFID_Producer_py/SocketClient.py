@@ -23,7 +23,7 @@ class SocketClient:
         self.error_callback = None
 
     def set_callbacks(self,
-                      receive_callback: Optional[Callable[[dict], None]] = None,
+                      receive_callback: Optional[Callable[[bytes or dict], None]] = None,
                       connection_callback: Optional[Callable[[bool, str], None]] = None,
                       error_callback: Optional[Callable[[str], None]] = None):
         """设置回调函数"""
@@ -71,7 +71,7 @@ class SocketClient:
                 pass
             self.socket = None
 
-    def send_data(self, data: dict or str) -> bool:
+    def send_data(self, data: dict or str or bytes) -> bool:
         """发送数据到队列"""
         if self.is_connected:
             self.send_queue.put(data)
@@ -79,7 +79,8 @@ class SocketClient:
         return False
 
     def _send_loop(self):
-        """发送循环"""
+        """发送循环 - 直接发送原始数据"""
+        print('_send_loop start')
         while self.is_connected:
             try:
                 data = self.send_queue.get(timeout=1)
@@ -88,11 +89,16 @@ class SocketClient:
                         data = json.dumps(data, ensure_ascii=False).encode('utf-8')
                     elif isinstance(data, str):
                         data = data.encode('utf-8')
+                    elif isinstance(data, bytes):
+                        # 如果是字节数组，直接使用
+                        pass
+                    else:
+                        # 其他类型转换为字符串
+                        data = str(data).encode('utf-8')
 
-                    # 添加数据长度前缀
-                    data_length = len(data)
-                    header = data_length.to_bytes(4, byteorder='big')
-                    self.socket.sendall(header + data)
+                    # 直接发送数据，不添加任何前缀
+                    self.socket.sendall(data)
+                    print(f"发送数据: {data.hex().upper()}")  # 调试用
 
             except queue.Empty:
                 continue
@@ -102,38 +108,17 @@ class SocketClient:
                 break
 
     def _receive_loop(self):
-        """接收循环"""
+        """接收循环 - 直接接收原始数据"""
+        print('_receive_loop start')
         while self.is_connected:
             try:
-                # 接收数据头（4字节长度）
-                header = self.socket.recv(4)
-                if not header:
+                # 直接接收数据，不处理任何头部
+                received_data = self.socket.recv(1024)  # 接收最多1024字节
+                if not received_data:
                     break
 
-                data_length = int.from_bytes(header, byteorder='big')
-
-                # 接收实际数据
-                received_data = b''
-                while len(received_data) < data_length:
-                    chunk = self.socket.recv(min(4096, data_length - len(received_data)))
-                    if not chunk:
-                        break
-                    received_data += chunk
-
-                if len(received_data) == data_length:
-                    # 处理接收到的数据
-                    try:
-                        data_str = received_data.decode('utf-8')
-                        data_dict = json.loads(data_str)
-                        if self.receive_callback:
-                            self.receive_callback(data_dict)
-                    except json.JSONDecodeError:
-                        # 如果不是JSON格式，直接传递字符串
-                        if self.receive_callback:
-                            self.receive_callback({"raw_data": data_str})
-                    except Exception as e:
-                        if self.error_callback:
-                            self.error_callback(f"数据处理错误: {e}")
+                # 处理接收到的数据
+                self._process_received_data(received_data)
 
             except socket.timeout:
                 continue
@@ -145,6 +130,35 @@ class SocketClient:
         self.is_connected = False
         if self.connection_callback:
             self.connection_callback(False, "与服务器连接断开")
+
+    def _process_received_data(self, data: bytes):
+        """处理接收到的数据"""
+        try:
+            # 首先尝试解码为UTF-8文本（JSON格式）
+            try:
+                data_str = data.decode('utf-8')
+                data_dict = json.loads(data_str)
+                if self.receive_callback:
+                    self.receive_callback(data_dict)
+                print(f"接收到JSON数据: {data_dict}")
+                return
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                # 如果不是UTF-8文本或JSON格式，作为二进制数据处理
+                pass
+
+            # 作为二进制数据处理
+            if self.receive_callback:
+                self.receive_callback(data)
+
+            # 调试信息
+            hex_data = data.hex().upper()
+            formatted_hex = ' '.join([hex_data[i:i + 2] for i in range(0, len(hex_data), 2)])
+            print(f"接收到二进制数据: {formatted_hex}")
+            print(f"数据长度: {len(data)}字节")
+
+        except Exception as e:
+            if self.error_callback:
+                self.error_callback(f"数据处理错误: {e}")
 
     def get_connection_status(self) -> bool:
         """获取连接状态"""

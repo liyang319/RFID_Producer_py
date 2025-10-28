@@ -23,7 +23,7 @@ class RFIDProductionSystem:
         self.error_message = "无异常"
 
         # Socket客户端
-        self.socket_client = SocketClient('192.168.1.200', 2000)
+        self.socket_client = SocketClient('192.168.1.100', 2000)
         self.setup_socket_callbacks()
 
         # 创建界面
@@ -315,16 +315,20 @@ class RFIDProductionSystem:
 
             # 发送开始生产命令到服务器
             if self.socket_client.is_connected:
-                command = {
-                    "type": "production_control",
-                    "command": "start",
-                    "timestamp": datetime.now().isoformat(),
-                    "data": {
-                        "current_load": self.current_load,
-                        "daily_production": self.daily_production
-                    }
-                }
-                self.socket_client.send_data(command)
+                # command = {
+                #     "type": "production_control",
+                #     "command": "start",
+                #     "timestamp": datetime.now().isoformat(),
+                #     "data": {
+                #         "current_load": self.current_load,
+                #         "daily_production": self.daily_production
+                #     }
+                # }
+                # self.socket_client.send_data(command)
+                command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
+                # print(command_bytes)
+                print(len(command_bytes))
+                self.socket_client.send_data(command_bytes)
 
         else:
             self.run_button.config(text="运行产线", bg='#27ae60')
@@ -335,12 +339,16 @@ class RFIDProductionSystem:
 
             # 发送停止生产命令到服务器
             if self.socket_client.is_connected:
-                command = {
-                    "type": "production_control",
-                    "command": "stop",
-                    "timestamp": datetime.now().isoformat()
-                }
-                self.socket_client.send_data(command)
+                # command = {
+                #     "type": "production_control",
+                #     "command": "stop",
+                #     "timestamp": datetime.now().isoformat()
+                # }
+                # self.socket_client.send_data(command)
+                command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
+                # print(command_bytes)
+                print(len(command_bytes))
+                self.socket_client.send_data(command_bytes)
 
     def emergency_stop(self):
         """紧急制动"""
@@ -434,26 +442,66 @@ class RFIDProductionSystem:
         self.root.after(0, update_ui)
 
     def on_socket_receive(self, data):
-        """接收到Socket数据的回调（在Socket线程中调用）"""
-
+        """接收到Socket数据的回调（支持二进制数据）"""
+        print('on_socket_receive')
         def update_ui():
-            if isinstance(data, dict):
-                # 处理不同类型的消息
-                msg_type = data.get('type', '')
-                if msg_type == 'production_data':
-                    self.handle_production_data(data)
-                elif msg_type == 'status_update':
-                    self.handle_status_update(data)
-                elif msg_type == 'rfid_data':
-                    self.handle_rfid_data(data)
-                elif msg_type == 'heartbeat':
-                    self.handle_heartbeat(data)
-                else:
-                    self.add_message(f"收到数据: {data}")
+            if isinstance(data, bytes):
+                # 处理二进制数据
+                self.handle_binary_data(data)
+            elif isinstance(data, dict):
+                # 处理JSON数据
+                self.handle_json_data(data)
             else:
-                self.add_message(f"收到原始数据: {data}")
+                # 其他类型数据
+                self.add_message(f"收到未知格式数据: {type(data)}")
 
         self.root.after(0, update_ui)
+
+    def handle_binary_data(self, data: bytes):
+        """处理二进制数据"""
+        # 将二进制数据转换为十六进制字符串显示
+        hex_data = data.hex().upper()
+        formatted_hex = ' '.join([hex_data[i:i + 2] for i in range(0, len(hex_data), 2)])
+
+        self.add_message(f"收到二进制数据: {formatted_hex}")
+
+        # 解析特定的二进制协议
+        if len(data) >= 10:  # 假设你的协议数据包至少10字节
+            # 示例：解析 A5 5A 开头的协议
+            if data[0] == 0xA5 and data[1] == 0x5A:
+                self.parse_protocol_a55a(data)
+
+    def parse_protocol_a55a(self, data: bytes):
+        """解析 A5 5A 协议格式"""
+        try:
+            # 示例解析逻辑
+            header = data[0:2]  # A5 5A
+            length = data[2]  # 数据长度
+            command = data[4]  # 命令字
+            # ... 根据你的实际协议解析
+
+            self.add_message(f"解析协议: 长度={len(data)}, 命令=0x{command:02X}")
+
+            # 根据命令类型更新界面
+            if command == 0x80:  # 生产状态命令
+                self.update_production_status(data)
+            elif command == 0x81:  # RFID数据命令
+                self.update_rfid_data(data)
+
+        except Exception as e:
+            self.add_message(f"协议解析错误: {e}")
+
+    def handle_json_data(self, data: dict):
+        """处理JSON数据"""
+        msg_type = data.get('type', '')
+        if msg_type == 'production_data':
+            self.handle_production_data(data)
+        elif msg_type == 'status_update':
+            self.handle_status_update(data)
+        elif msg_type == 'rfid_data':
+            self.handle_rfid_data(data)
+        else:
+            self.add_message(f"收到JSON数据: {data}")
 
     def on_socket_error(self, error_msg):
         """Socket错误回调（在Socket线程中调用）"""
