@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 import threading
 from SocketClient import SocketClient
+from command import device_command, CMD_RFID_QUERY, CMD_PRODUCTION_START, CMD_PRODUCTION_STOP
 
 
 class RFIDProductionSystem:
@@ -325,9 +326,8 @@ class RFIDProductionSystem:
                 #     }
                 # }
                 # self.socket_client.send_data(command)
-                command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
-                # print(command_bytes)
-                print(len(command_bytes))
+                # command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
+                command_bytes = CMD_RFID_QUERY
                 self.socket_client.send_data(command_bytes)
 
         else:
@@ -345,9 +345,9 @@ class RFIDProductionSystem:
                 #     "timestamp": datetime.now().isoformat()
                 # }
                 # self.socket_client.send_data(command)
-                command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
+                # command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
                 # print(command_bytes)
-                print(len(command_bytes))
+                command_bytes = CMD_RFID_QUERY
                 self.socket_client.send_data(command_bytes)
 
     def emergency_stop(self):
