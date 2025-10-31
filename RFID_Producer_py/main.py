@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 import time
 import threading
-from SocketClient import SocketClient
+from RFIDReader_CNNT import RFIDReader_CNNT
 from command import device_command, CMD_RFID_QUERY, CMD_PRODUCTION_START, CMD_PRODUCTION_STOP
 
 
@@ -23,13 +23,13 @@ class RFIDProductionSystem:
         self.line_runtime = "20时10分"
         self.error_message = "无异常"
 
-        # Socket客户端
-        self.socket_client = SocketClient('192.168.1.100', 2000)
-        self.setup_socket_callbacks()
+        # RFID读写器（替换原来的SocketClient）
+        self.rfid_reader = RFIDReader_CNNT('192.168.1.200', 2000)
+        self.setup_rfid_callbacks()
 
-        # 创建界面
+        # 创建界面（保持原有UI不变）
         self.create_title_section()
-        self.create_socket_section()
+        self.create_socket_section()  # 这个section现在用于RFID读写器连接
         self.create_device_info_section()
         self.create_rfid_info_section()
         self.create_production_stats_section()
@@ -38,8 +38,16 @@ class RFIDProductionSystem:
         # 启动时间更新
         self.update_time()
 
-        # 尝试自动连接Socket服务器
+        # 尝试自动连接RFID读写器
         self.auto_connect()
+
+    def setup_rfid_callbacks(self):
+        """设置RFID读写器回调函数"""
+        self.rfid_reader.set_callbacks(
+            receive_callback=self.on_rfid_data_received,
+            connection_callback=self.on_rfid_connection_changed,
+            error_callback=self.on_rfid_error
+        )
 
     def create_title_section(self):
         """创建标题区域"""
@@ -52,17 +60,9 @@ class RFIDProductionSystem:
                                bg='#2c3e50', fg='white')
         title_label.pack(pady=20)
 
-    def setup_socket_callbacks(self):
-        """设置Socket回调函数"""
-        self.socket_client.set_callbacks(
-            receive_callback=self.on_socket_receive,
-            connection_callback=self.on_connection_status,
-            error_callback=self.on_socket_error
-        )
-
     def create_socket_section(self):
-        """创建Socket连接控制区域"""
-        socket_frame = tk.LabelFrame(self.root, text="网络通信设置",
+        """创建RFID读写器连接控制区域（保持原有UI结构）"""
+        socket_frame = tk.LabelFrame(self.root, text="RFID读写器连接设置",
                                      font=("微软雅黑", 11, "bold"),
                                      bg='white', bd=2, relief='groove',
                                      fg='#2c3e50')
@@ -72,7 +72,7 @@ class RFIDProductionSystem:
         config_frame = tk.Frame(socket_frame, bg='white')
         config_frame.pack(fill='x', padx=10, pady=8)
 
-        tk.Label(config_frame, text="服务器地址:", font=("微软雅黑", 9),
+        tk.Label(config_frame, text="RFID读写器地址:", font=("微软雅黑", 9),
                  bg='white').pack(side='left', padx=(0, 5))
 
         self.host_entry = tk.Entry(config_frame, width=15, font=("微软雅黑", 9),
@@ -88,7 +88,7 @@ class RFIDProductionSystem:
         self.port_entry.insert(0, "2000")
         self.port_entry.pack(side='left', padx=(0, 20))
 
-        # Socket连接状态和控制按钮
+        # 连接状态和控制按钮
         status_frame = tk.Frame(socket_frame, bg='white')
         status_frame.pack(fill='x', padx=10, pady=8)
 
@@ -104,16 +104,16 @@ class RFIDProductionSystem:
         button_frame = tk.Frame(status_frame, bg='white')
         button_frame.pack(side='right')
 
-        self.connect_button = tk.Button(button_frame, text="连接服务器",
+        self.connect_button = tk.Button(button_frame, text="连接RFID读写器",
                                         font=("微软雅黑", 9), bg='#3498db', fg='white',
-                                        width=12, height=1,
-                                        command=self.connect_socket)
+                                        width=15, height=1,
+                                        command=self.connect_rfid)
         self.connect_button.pack(side='left', padx=(0, 10))
 
         self.disconnect_button = tk.Button(button_frame, text="断开连接",
                                            font=("微软雅黑", 9), bg='#95a5a6', fg='white',
                                            width=12, height=1,
-                                           command=self.disconnect_socket,
+                                           command=self.disconnect_rfid,
                                            state='disabled')
         self.disconnect_button.pack(side='left')
 
@@ -138,7 +138,7 @@ class RFIDProductionSystem:
         self.message_text.config(state='disabled')
 
     def create_device_info_section(self):
-        """创建设备信息区域"""
+        """创建设备信息区域（保持不变）"""
         info_frame = tk.Frame(self.root, bg='white', relief='groove', bd=1)
         info_frame.pack(fill='x', padx=15, pady=5)
 
@@ -173,7 +173,7 @@ class RFIDProductionSystem:
         self.time_label.pack(side='left')
 
     def create_rfid_info_section(self):
-        """创建RFID信息区域"""
+        """创建RFID信息区域（保持不变）"""
         tray_frame = tk.LabelFrame(self.root, text="标签信息",
                                    font=("微软雅黑", 12, "bold"),
                                    bg='white', bd=2, relief='groove',
@@ -217,7 +217,7 @@ class RFIDProductionSystem:
         self.after_text.grid(row=2, column=1, padx=10, pady=10, sticky='w')
 
     def create_production_stats_section(self):
-        """创建生产统计区域"""
+        """创建生产统计区域（保持不变）"""
         stats_frame = tk.Frame(self.root, bg='#f8f9fa', relief='groove', bd=1)
         stats_frame.pack(fill='x', padx=15, pady=10)
 
@@ -243,7 +243,7 @@ class RFIDProductionSystem:
         self.daily_label.grid(row=0, column=5, sticky='w', padx=5, pady=15)
 
     def create_status_control_section(self):
-        """创建状态和控制区域"""
+        """创建状态和控制区域（保持不变）"""
         bottom_frame = tk.Frame(self.root, bg='#f0f0f0')
         bottom_frame.pack(fill='x', padx=15, pady=10)
 
@@ -305,7 +305,7 @@ class RFIDProductionSystem:
         self.root.after(1000, self.update_time)
 
     def toggle_production(self):
-        """切换产线运行状态"""
+        """切换产线运行状态 - 主要修改部分"""
         self.is_running = not self.is_running
         if self.is_running:
             self.run_button.config(text="停止产线", bg='#f39c12')
@@ -314,21 +314,14 @@ class RFIDProductionSystem:
             self.error_label.config(text="运行中", fg='#27ae60')
             self.add_message("产线开始运行")
 
-            # 发送开始生产命令到服务器
-            if self.socket_client.is_connected:
-                # command = {
-                #     "type": "production_control",
-                #     "command": "start",
-                #     "timestamp": datetime.now().isoformat(),
-                #     "data": {
-                #         "current_load": self.current_load,
-                #         "daily_production": self.daily_production
-                #     }
-                # }
-                # self.socket_client.send_data(command)
-                # command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
-                command_bytes = CMD_RFID_QUERY
-                self.socket_client.send_data(command_bytes)
+            # 发送开始生产指令到RFID读写器
+            if self.rfid_reader.get_connection_status():
+                if self.rfid_reader.send_single_cmd('RFID_QUERY'):
+                    self.add_message("发送开始生产指令成功")
+                else:
+                    self.add_message("发送开始生产指令失败")
+            else:
+                self.add_message("RFID读写器未连接，无法发送指令")
 
         else:
             self.run_button.config(text="运行产线", bg='#27ae60')
@@ -337,18 +330,14 @@ class RFIDProductionSystem:
             self.error_label.config(text="已停止", fg='#95a5a6')
             self.add_message("产线已停止")
 
-            # 发送停止生产命令到服务器
-            if self.socket_client.is_connected:
-                # command = {
-                #     "type": "production_control",
-                #     "command": "stop",
-                #     "timestamp": datetime.now().isoformat()
-                # }
-                # self.socket_client.send_data(command)
-                # command_bytes = bytes([0xA5, 0x5A, 0x00, 0x0A, 0x80, 0x00, 0x64, 0xEE, 0x0D, 0x0A])
-                # print(command_bytes)
-                command_bytes = CMD_RFID_QUERY
-                self.socket_client.send_data(command_bytes)
+            # 发送停止生产指令到RFID读写器
+            if self.rfid_reader.get_connection_status():
+                if self.rfid_reader.send_single_cmd('PRODUCTION_STOP'):
+                    self.add_message("发送停止生产指令成功")
+                else:
+                    self.add_message("发送停止生产指令失败")
+            else:
+                self.add_message("RFID读写器未连接，无法发送指令")
 
     def emergency_stop(self):
         """紧急制动"""
@@ -359,69 +348,74 @@ class RFIDProductionSystem:
         self.error_label.config(text="紧急制动！", fg='#e74c3c')
         self.add_message("紧急制动！系统已停止")
 
-        # 发送紧急停止命令到服务器
-        if self.socket_client.is_connected:
-            command = {
-                "type": "emergency_stop",
-                "timestamp": datetime.now().isoformat(),
-                "message": "用户触发紧急制动"
-            }
-            self.socket_client.send_data(command)
+        # 发送紧急停止指令到RFID读写器
+        if self.rfid_reader.get_connection_status():
+            if self.rfid_reader.send_single_cmd('PRODUCTION_EMERGENCY_STOP'):
+                self.add_message("发送紧急停止指令成功")
+            else:
+                self.add_message("发送紧急停止指令失败")
+        else:
+            self.add_message("RFID读写器未连接，无法发送指令")
 
         messagebox.showwarning("紧急制动", "系统已紧急停止！")
 
-    def simulate_production(self):
-        """模拟生产数据更新（可选功能）"""
-        if self.is_running:
-            self.current_load += 1
-            self.daily_production += 1
-            self.current_load_label.config(text=str(self.current_load))
-            self.daily_label.config(text=str(self.daily_production))
-
-        self.root.after(5000, self.simulate_production)
-
-    # Socket相关方法
+    # RFID读写器相关方法
     def auto_connect(self):
-        """自动连接Socket服务器"""
-        self.add_message("系统启动，准备连接服务器...")
+        """自动连接RFID读写器"""
+        self.add_message("系统启动，准备连接RFID读写器...")
 
         def connect_thread():
             time.sleep(2)  # 延迟2秒连接，让界面先加载完成
-            if self.socket_client.connect():
-                self.add_message("自动连接服务器成功")
+            if self.rfid_reader.connect():
+                self.add_message("自动连接RFID读写器成功")
             else:
                 self.add_message("自动连接失败，请手动连接")
 
         threading.Thread(target=connect_thread, daemon=True).start()
 
-    def connect_socket(self):
-        """连接Socket服务器"""
-        # 更新服务器配置
+    def connect_rfid(self):
+        """连接RFID读写器"""
+        # 更新RFID读写器配置
         try:
             host = self.host_entry.get()
             port = int(self.port_entry.get())
-            self.socket_client.host = host
-            self.socket_client.port = port
+            self.rfid_reader.host = host
+            self.rfid_reader.port = port
         except ValueError:
             messagebox.showerror("错误", "端口号必须是数字")
             return
 
         def connect_thread():
-            if self.socket_client.connect():
-                self.add_message(f"手动连接服务器 {host}:{port} 成功")
+            if self.rfid_reader.connect():
+                self.add_message(f"手动连接RFID读写器 {host}:{port} 成功")
 
         threading.Thread(target=connect_thread, daemon=True).start()
         self.connect_button.config(state='disabled', text="连接中...")
-        self.add_message(f"正在连接服务器 {host}:{port}...")
+        self.add_message(f"正在连接RFID读写器 {host}:{port}...")
 
-    def disconnect_socket(self):
-        """断开Socket连接"""
-        self.socket_client.disconnect()
-        self.add_message("手动断开服务器连接")
+    def disconnect_rfid(self):
+        """断开RFID读写器连接"""
+        self.rfid_reader.disconnect()
+        self.add_message("手动断开RFID读写器连接")
 
-    def on_connection_status(self, connected, message):
-        """连接状态回调（在Socket线程中调用）"""
+    # RFID读写器回调函数
+    def on_rfid_data_received(self, data):
+        """RFID数据接收回调"""
+        def update_ui():
+            if isinstance(data, bytes):
+                # 处理二进制数据
+                hex_str = ' '.join([f'{b:02X}' for b in data])
+                self.add_message(f"收到RFID数据: {hex_str}")
+                self.process_rfid_data(data)
+            elif isinstance(data, dict):
+                # 处理JSON数据
+                self.add_message(f"收到RFID JSON数据: {data}")
+                self.handle_json_data(data)
 
+        self.root.after(0, update_ui)
+
+    def on_rfid_connection_changed(self, connected, message):
+        """RFID连接状态回调"""
         def update_ui():
             if connected:
                 self.socket_status_label.config(text="● 已连接", fg='#27ae60')
@@ -431,55 +425,37 @@ class RFIDProductionSystem:
                 self.port_entry.config(state='disabled')
             else:
                 self.socket_status_label.config(text="● 未连接", fg='#e74c3c')
-                self.connect_button.config(state='normal', text="连接服务器")
+                self.connect_button.config(state='normal', text="连接RFID读写器")
                 self.disconnect_button.config(state='disabled', bg='#95a5a6')
                 self.host_entry.config(state='normal')
                 self.port_entry.config(state='normal')
 
             self.add_message(message)
 
-        # 使用after确保线程安全
         self.root.after(0, update_ui)
 
-    def on_socket_receive(self, data):
-        """接收到Socket数据的回调（支持二进制数据）"""
-        print('on_socket_receive')
+    def on_rfid_error(self, error_msg):
+        """RFID错误回调"""
         def update_ui():
-            if isinstance(data, bytes):
-                # 处理二进制数据
-                self.handle_binary_data(data)
-            elif isinstance(data, dict):
-                # 处理JSON数据
-                self.handle_json_data(data)
-            else:
-                # 其他类型数据
-                self.add_message(f"收到未知格式数据: {type(data)}")
+            self.add_message(f"RFID错误: {error_msg}")
+            # 只在重要错误时显示弹窗
+            if "连接" in error_msg or "断开" in error_msg:
+                messagebox.showerror("RFID错误", error_msg)
 
         self.root.after(0, update_ui)
 
-    def handle_binary_data(self, data: bytes):
-        """处理二进制数据"""
-        # 将二进制数据转换为十六进制字符串显示
-        hex_data = data.hex().upper()
-        formatted_hex = ' '.join([hex_data[i:i + 2] for i in range(0, len(hex_data), 2)])
-
-        self.add_message(f"收到二进制数据: {formatted_hex}")
-
-        # 解析特定的二进制协议
-        if len(data) >= 10:  # 假设你的协议数据包至少10字节
-            # 示例：解析 A5 5A 开头的协议
+    def process_rfid_data(self, data: bytes):
+        """处理RFID二进制数据"""
+        # 根据你的协议解析数据并更新界面
+        if len(data) >= 10:
+            # 示例解析逻辑
             if data[0] == 0xA5 and data[1] == 0x5A:
                 self.parse_protocol_a55a(data)
 
     def parse_protocol_a55a(self, data: bytes):
         """解析 A5 5A 协议格式"""
         try:
-            # 示例解析逻辑
-            header = data[0:2]  # A5 5A
-            length = data[2]  # 数据长度
             command = data[4]  # 命令字
-            # ... 根据你的实际协议解析
-
             self.add_message(f"解析协议: 长度={len(data)}, 命令=0x{command:02X}")
 
             # 根据命令类型更新界面
@@ -502,17 +478,6 @@ class RFIDProductionSystem:
             self.handle_rfid_data(data)
         else:
             self.add_message(f"收到JSON数据: {data}")
-
-    def on_socket_error(self, error_msg):
-        """Socket错误回调（在Socket线程中调用）"""
-
-        def update_ui():
-            self.add_message(f"错误: {error_msg}")
-            # 只在重要错误时显示弹窗
-            if "连接" in error_msg or "断开" in error_msg:
-                messagebox.showerror("Socket错误", error_msg)
-
-        self.root.after(0, update_ui)
 
     def handle_production_data(self, data):
         """处理生产数据"""
@@ -585,14 +550,18 @@ class RFIDProductionSystem:
 
         self.add_message("RFID标签数据已更新")
 
-    def handle_heartbeat(self, data):
-        """处理心跳数据"""
-        # 可以在这里更新最后通信时间等状态
+    def update_production_status(self, data: bytes):
+        """根据二进制数据更新生产状态"""
+        # 根据你的实际协议实现
+        pass
+
+    def update_rfid_data(self, data: bytes):
+        """根据二进制数据更新RFID数据"""
+        # 根据你的实际协议实现
         pass
 
     def add_message(self, message):
         """添加消息到消息框"""
-
         def _add_message():
             self.message_text.config(state='normal')
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -605,13 +574,12 @@ class RFIDProductionSystem:
             if lines > 100:  # 保留最近100条消息
                 self.message_text.delete('1.0', '2.0')
 
-        # 确保线程安全
         self.root.after(0, _add_message)
 
     def on_closing(self):
         """程序关闭时的清理工作"""
-        if self.socket_client.is_connected:
-            self.socket_client.disconnect()
+        if hasattr(self, 'rfid_reader'):
+            self.rfid_reader.disconnect()
         self.root.destroy()
 
 
@@ -621,9 +589,6 @@ def main():
 
     # 设置关闭窗口事件
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
-
-    # 可选：启动生产数据模拟
-    # app.simulate_production()
 
     root.mainloop()
 
