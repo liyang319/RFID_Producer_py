@@ -5,7 +5,7 @@ from datetime import datetime
 import time
 import threading
 from RFIDReader_CNNT import RFIDReader_CNNT
-from command import device_command, CMD_RFID_QUERY, CMD_PRODUCTION_START, CMD_PRODUCTION_STOP
+from command import device_command
 
 
 class RFIDProductionSystem:
@@ -316,28 +316,28 @@ class RFIDProductionSystem:
 
             # 发送开始生产指令到RFID读写器
             if self.rfid_reader.get_connection_status():
-                if self.rfid_reader.send_single_cmd('RFID_QUERY'):
+                if self.rfid_reader.send_single_cmd('CMD_RFID_LOOP_START'):
                     self.add_message("发送开始生产指令成功")
                 else:
                     self.add_message("发送开始生产指令失败")
             else:
                 self.add_message("RFID读写器未连接，无法发送指令")
 
-        else:
-            self.run_button.config(text="运行产线", bg='#27ae60')
-            self.normal_status.config(fg='#bdc3c7')
-            self.abnormal_status.config(fg='#bdc3c7')
-            self.error_label.config(text="已停止", fg='#95a5a6')
-            self.add_message("产线已停止")
-
-            # 发送停止生产指令到RFID读写器
-            if self.rfid_reader.get_connection_status():
-                if self.rfid_reader.send_single_cmd('PRODUCTION_STOP'):
-                    self.add_message("发送停止生产指令成功")
-                else:
-                    self.add_message("发送停止生产指令失败")
-            else:
-                self.add_message("RFID读写器未连接，无法发送指令")
+        # else:
+        #     self.run_button.config(text="运行产线", bg='#27ae60')
+        #     self.normal_status.config(fg='#bdc3c7')
+        #     self.abnormal_status.config(fg='#bdc3c7')
+        #     self.error_label.config(text="已停止", fg='#95a5a6')
+        #     self.add_message("产线已停止")
+        #
+        #     # 发送停止生产指令到RFID读写器
+        #     if self.rfid_reader.get_connection_status():
+        #         if self.rfid_reader.send_single_cmd('PRODUCTION_STOP'):
+        #             self.add_message("发送停止生产指令成功")
+        #         else:
+        #             self.add_message("发送停止生产指令失败")
+        #     else:
+        #         self.add_message("RFID读写器未连接，无法发送指令")
 
     def emergency_stop(self):
         """紧急制动"""
@@ -446,8 +446,9 @@ class RFIDProductionSystem:
 
     def process_rfid_data(self, data: bytes):
         """处理RFID二进制数据"""
+        print('process_rfid_data')
         # 根据你的协议解析数据并更新界面
-        if len(data) >= 10:
+        if len(data) >= 8:
             # 示例解析逻辑
             if data[0] == 0xA5 and data[1] == 0x5A:
                 self.parse_protocol_a55a(data)
@@ -459,9 +460,9 @@ class RFIDProductionSystem:
             self.add_message(f"解析协议: 长度={len(data)}, 命令=0x{command:02X}")
 
             # 根据命令类型更新界面
-            if command == 0x80:  # 生产状态命令
+            if command == 0x83:  # loop应答
                 self.update_production_status(data)
-            elif command == 0x81:  # RFID数据命令
+            elif command == 0x8D:  # loop停止应答
                 self.update_rfid_data(data)
 
         except Exception as e:

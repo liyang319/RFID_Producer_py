@@ -166,6 +166,8 @@ class RFIDReader_CNNT:
 
         self.loop_running = False
 
+
+
     def send_multiple_cmds(self, command_names: list, interval: float = 1.0):
         """
         顺序发送多个指令
