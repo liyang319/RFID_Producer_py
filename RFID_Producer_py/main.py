@@ -51,12 +51,12 @@ class RFIDProductionSystem:
 
     def create_title_section(self):
         """创建标题区域"""
-        title_frame = tk.Frame(self.root, bg='#2c3e50', height=80)
-        title_frame.pack(fill='x', padx=10, pady=10)
+        title_frame = tk.Frame(self.root, bg='#2c3e50', height=70)
+        title_frame.pack(fill='x', padx=5, pady=5)
         title_frame.pack_propagate(False)
 
         title_label = tk.Label(title_frame, text="RFID贴标生产系统",
-                               font=("微软雅黑", 24, "bold"),
+                               font=("微软雅黑", 20, "bold"),
                                bg='#2c3e50', fg='white')
         title_label.pack(pady=20)
 
@@ -105,13 +105,13 @@ class RFIDProductionSystem:
         button_frame.pack(side='right')
 
         self.connect_button = tk.Button(button_frame, text="连接RFID读写器",
-                                        font=("微软雅黑", 9), bg='#3498db', fg='white',
+                                        font=("微软雅黑", 9), bg='#3498db', fg='black',
                                         width=15, height=1,
                                         command=self.connect_rfid)
         self.connect_button.pack(side='left', padx=(0, 10))
 
         self.disconnect_button = tk.Button(button_frame, text="断开连接",
-                                           font=("微软雅黑", 9), bg='#95a5a6', fg='white',
+                                           font=("微软雅黑", 9), bg='#95a5a6', fg='black',
                                            width=12, height=1,
                                            command=self.disconnect_rfid,
                                            state='disabled')
@@ -203,17 +203,17 @@ class RFIDProductionSystem:
         # 取标内容
         tk.Label(tray_frame, text="取标内容:", font=("微软雅黑", 10),
                  bg='white').grid(row=1, column=0, sticky='nw', padx=10, pady=10)
-        self.fetch_text = tk.Text(tray_frame, width=50, height=4, font=("微软雅黑", 10),
+        self.fetch_text = tk.Text(tray_frame, width=50, height=5, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
-        self.fetch_text.insert("1.0", "RFID: 001-2024-08-15-001\n产品编码: PROD-001\n生产批次: BATCH-2024-08A")
+        self.fetch_text.insert("1.0", "")
         self.fetch_text.grid(row=1, column=1, padx=10, pady=10, sticky='w')
 
         # 贴标后内容
         tk.Label(tray_frame, text="贴标后内容:", font=("微软雅黑", 10),
                  bg='white').grid(row=2, column=0, sticky='nw', padx=10, pady=10)
-        self.after_text = tk.Text(tray_frame, width=50, height=4, font=("微软雅黑", 10),
+        self.after_text = tk.Text(tray_frame, width=50, height=5, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
-        self.after_text.insert("1.0", "RFID: 001-2024-08-15-001-VERIFIED\n产品编码: PROD-001\n状态: 已贴标完成")
+        self.after_text.insert("1.0", "")
         self.after_text.grid(row=2, column=1, padx=10, pady=10, sticky='w')
 
     def create_production_stats_section(self):
@@ -285,7 +285,7 @@ class RFIDProductionSystem:
         # 运行产线按钮
         self.run_button = tk.Button(control_frame, text="运行产线",
                                     font=("微软雅黑", 12, "bold"),
-                                    bg='#27ae60', fg='white',
+                                    bg='#27ae60', fg='black',
                                     width=12, height=2,
                                     command=self.toggle_production)
         self.run_button.pack(pady=5)
@@ -293,7 +293,7 @@ class RFIDProductionSystem:
         # 紧急制动按钮
         self.emergency_button = tk.Button(control_frame, text="紧急制动",
                                           font=("微软雅黑", 12, "bold"),
-                                          bg='#e74c3c', fg='white',
+                                          bg='#e74c3c', fg='black',
                                           width=12, height=2,
                                           command=self.emergency_stop)
         self.emergency_button.pack(pady=5)
@@ -461,9 +461,9 @@ class RFIDProductionSystem:
 
             # 根据命令类型更新界面
             if command == 0x83:  # loop应答
-                self.update_production_status(data)
-            elif command == 0x8D:  # loop停止应答
                 self.update_rfid_data(data)
+            elif command == 0x8D:  # loop停止应答
+                self.update_production_status(data)
 
         except Exception as e:
             self.add_message(f"协议解析错误: {e}")
@@ -556,9 +556,98 @@ class RFIDProductionSystem:
         # 根据你的实际协议实现
         pass
 
+    def process_rfid_data_epc_tid_user(self, data: bytes) -> dict:
+        """
+        解析RFID数据中的PC、EPC、TID、USER和RSSI数据
+
+        Args:
+            data: 接收到的完整数据包
+
+        Returns:
+            dict: 包含解析结果的字典
+            {
+                'pc': '30 00',           # 字节5-6
+                'epc': 'E2 82 78 83 00 00 00 00 00 88 00 00',  # 字节8-19
+                'tid': 'E2 82 78 83 20 00 00 00 00 88 3A CC',   # 字节20-31
+                'user': '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00',  # 字节32-47
+                'rssi': -65.7,           # 实际RSSI值（dBm）
+                'rssi_hex': 'FD6F',      # RSSI原始十六进制
+                'success': True/False,
+                'error': '错误信息'
+            }
+        """
+        result = {
+            'pc': '',
+            'epc': '',
+            'tid': '',
+            'user': '',
+            'rssi': 0.0,
+            'rssi_hex': '',
+            'success': False,
+            'error': ''
+        }
+
+        try:
+            # 检查数据长度
+            if len(data) < 50:
+                result['error'] = f'数据长度不足，需要至少50字节，实际收到{len(data)}字节'
+                return result
+
+            # 解析PC数据 (字节5-6，共2字节)
+            pc_data = data[5:7]
+            result['pc'] = ' '.join([f'{b:02X}' for b in pc_data])
+
+            # 解析EPC数据 (字节8-19，共12字节)
+            epc_data = data[7:19]
+            result['epc'] = ' '.join([f'{b:02X}' for b in epc_data])
+
+            # 解析TID数据 (字节20-31，共12字节)
+            tid_data = data[19:31]
+            result['tid'] = ' '.join([f'{b:02X}' for b in tid_data])
+
+            # 解析USER数据 (字节32-47，共16字节)
+            user_data = data[31:47]
+            result['user'] = ' '.join([f'{b:02X}' for b in user_data])
+
+            # 解析RSSI数据 (字节47-48，共2字节)
+            rssi_data = data[47:49]
+            result['rssi_hex'] = rssi_data.hex().upper()
+            result['rssi'] = self._parse_rssi(rssi_data)
+
+            result['success'] = True
+
+        except Exception as e:
+            result['error'] = f'解析RFID数据失败: {str(e)}'
+
+        return result
+
+    def _parse_rssi(self, rssi_bytes: bytes) -> float:
+        """
+        解析RSSI值（16位补码，实际值×10）
+        Args:
+            rssi_bytes: 2字节的RSSI数据
+        Returns:
+            float: 实际的RSSI值（dBm）
+        """
+        if len(rssi_bytes) < 2:
+            return 0.0
+        # 将2字节转换为有符号整数（补码）
+        rssi_int = int.from_bytes(rssi_bytes, byteorder='big', signed=True)
+        # 转换为实际值（除以10）
+        rssi_actual = rssi_int / 10.0
+        return rssi_actual
+
     def update_rfid_data(self, data: bytes):
         """根据二进制数据更新RFID数据"""
+        print('update_rfid_data')
         # 根据你的实际协议实现
+        if len(data) >= 53:
+            # 更新文本框内容
+            # 解析RFID数据
+            result = self.process_rfid_data_epc_tid_user(data)
+            display_text = f"EPC: {result['epc']}\nTID: {result['tid']}\nUSER: {result['user']}\nRSSI: {result['rssi']}\nPC: {result['pc']}"
+            self.update_element_text(self.fetch_text, display_text)
+            self.update_element_text(self.after_text, f"收到数据: {data.hex()}")
         pass
 
     def add_message(self, message):
@@ -582,6 +671,88 @@ class RFIDProductionSystem:
         if hasattr(self, 'rfid_reader'):
             self.rfid_reader.disconnect()
         self.root.destroy()
+
+    def update_element_text(self, element, text: str, **kwargs) -> bool:
+        """
+        增强版：更新界面元素的文本内容
+
+        Args:
+            element: 要更新的控件
+            text: 要设置的文本
+            **kwargs: 额外参数
+                - clear_first: bool = True 是否先清空内容
+                - scroll_to_end: bool = True 是否滚动到底部（Text控件）
+                - format_str: str = None 格式化字符串
+                - max_length: int = None 最大长度限制
+                - prefix: str = "" 前缀
+                - suffix: str = "" 后缀
+
+        Returns:
+            bool: 更新是否成功
+        """
+        if element is None:
+            return False
+
+        # 处理参数
+        clear_first = kwargs.get('clear_first', True)
+        scroll_to_end = kwargs.get('scroll_to_end', True)
+        format_str = kwargs.get('format_str')
+        max_length = kwargs.get('max_length')
+        prefix = kwargs.get('prefix', '')
+        suffix = kwargs.get('suffix', '')
+
+        # 格式化文本
+        formatted_text = str(text)
+        if format_str:
+            try:
+                formatted_text = format_str.format(text)
+            except:
+                pass
+
+        # 添加前后缀
+        formatted_text = prefix + formatted_text + suffix
+
+        # 长度限制
+        if max_length and len(formatted_text) > max_length:
+            formatted_text = formatted_text[:max_length - 3] + '...'
+
+        def _update():
+            try:
+                if isinstance(element, (tk.Label, tk.Button, tk.Checkbutton, tk.Radiobutton)):
+                    element.config(text=formatted_text)
+
+                elif isinstance(element, tk.Entry):
+                    if clear_first:
+                        element.delete(0, tk.END)
+                    element.insert(0, formatted_text)
+
+                elif isinstance(element, tk.Text):
+                    if clear_first:
+                        element.delete('1.0', tk.END)
+                    element.insert(tk.END, formatted_text)
+                    if scroll_to_end:
+                        element.see(tk.END)
+
+                elif isinstance(element, tk.LabelFrame):
+                    element.config(text=formatted_text)
+
+                elif hasattr(element, 'set'):  # StringVar等
+                    element.set(formatted_text)
+
+                else:
+                    if hasattr(element, 'config') and 'text' in element.config():
+                        element.config(text=formatted_text)
+                    else:
+                        return False
+
+                return True
+
+            except Exception as e:
+                print(f"更新控件文本失败: {e}")
+                return False
+
+        self.root.after(0, _update)
+        return True
 
 
 def main():
