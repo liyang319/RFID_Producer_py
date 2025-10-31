@@ -350,7 +350,7 @@ class RFIDProductionSystem:
 
         # 发送紧急停止指令到RFID读写器
         if self.rfid_reader.get_connection_status():
-            if self.rfid_reader.send_single_cmd('PRODUCTION_EMERGENCY_STOP'):
+            if self.rfid_reader.send_single_cmd('CMD_RFID_LOOP_STOP'):
                 self.add_message("发送紧急停止指令成功")
             else:
                 self.add_message("发送紧急停止指令失败")
