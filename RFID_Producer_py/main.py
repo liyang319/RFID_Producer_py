@@ -558,7 +558,7 @@ class RFIDProductionSystem:
 
     def process_rfid_data_epc_tid_user(self, data: bytes) -> dict:
         """
-        解析RFID数据中的PC、EPC、TID、USER和RSSI数据
+        解析RFID数据中的PC、EPC、TID、USER、RSSI和天线号数据
 
         Args:
             data: 接收到的完整数据包
@@ -572,6 +572,8 @@ class RFIDProductionSystem:
                 'user': '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00',  # 字节32-47
                 'rssi': -65.7,           # 实际RSSI值（dBm）
                 'rssi_hex': 'FD6F',      # RSSI原始十六进制
+                'ant_num': 1,            # 天线号（字节50）
+                'ant_num_hex': '01',     # 天线号十六进制
                 'success': True/False,
                 'error': '错误信息'
             }
@@ -583,14 +585,16 @@ class RFIDProductionSystem:
             'user': '',
             'rssi': 0.0,
             'rssi_hex': '',
+            'ant_num': 0,
+            'ant_num_hex': '',
             'success': False,
             'error': ''
         }
 
         try:
             # 检查数据长度
-            if len(data) < 50:
-                result['error'] = f'数据长度不足，需要至少50字节，实际收到{len(data)}字节'
+            if len(data) < 51:  # 需要至少51字节（包含天线号）
+                result['error'] = f'数据长度不足，需要至少51字节，实际收到{len(data)}字节'
                 return result
 
             # 解析PC数据 (字节5-6，共2字节)
@@ -613,6 +617,11 @@ class RFIDProductionSystem:
             rssi_data = data[47:49]
             result['rssi_hex'] = rssi_data.hex().upper()
             result['rssi'] = self._parse_rssi(rssi_data)
+
+            # 解析天线号 (字节50，第51个字节)
+            ant_num_byte = data[49]
+            result['ant_num'] = ant_num_byte
+            result['ant_num_hex'] = f'{ant_num_byte:02X}'
 
             result['success'] = True
 
@@ -645,9 +654,12 @@ class RFIDProductionSystem:
             # 更新文本框内容
             # 解析RFID数据
             result = self.process_rfid_data_epc_tid_user(data)
-            display_text = f"EPC: {result['epc']}\nTID: {result['tid']}\nUSER: {result['user']}\nRSSI: {result['rssi']}\nPC: {result['pc']}"
-            self.update_element_text(self.fetch_text, display_text)
-            self.update_element_text(self.after_text, f"收到数据: {data.hex()}")
+            display_text = f"EPC: {result['epc']}\nTID: {result['tid']}\nUSER: {result['user']}\nRSSI: {result['rssi']}\nPC: {result['pc']}\nant_num: {result['ant_num']}"
+            if result['ant_num'] == 1:
+                self.update_element_text(self.fetch_text, display_text)
+            elif result['ant_num'] == 2:
+                # self.update_element_text(self.after_text, f"收到数据: {data.hex()}")
+                self.update_element_text(self.after_text, display_text)
         pass
 
     def add_message(self, message):
