@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 import threading
 from RFIDReader_CNNT import RFIDReader_CNNT
+from rfid_tag import RFIDTag
 from command import device_command
 
 
@@ -22,6 +23,11 @@ class RFIDProductionSystem:
         self.daily_production = 199999
         self.line_runtime = "20时10分"
         self.error_message = "无异常"
+
+        # RFID标签管理
+        self.current_tag = None
+        self.tag_history = []
+        self.max_history_size = 10000
 
         # RFID读写器（替换原来的SocketClient）
         self.rfid_reader = RFIDReader_CNNT('192.168.1.200', 2000)
@@ -569,109 +575,65 @@ class RFIDProductionSystem:
 
     def process_rfid_data_epc_tid_user(self, data: bytes) -> dict:
         """
-        解析RFID数据中的PC、EPC、TID、USER、RSSI和天线号数据
+                解析RFID数据并返回RFIDTag对象
 
-        Args:
-            data: 接收到的完整数据包
+                Args:
+                    data: 接收到的完整数据包
 
-        Returns:
-            dict: 包含解析结果的字典
-            {
-                'pc': '30 00',           # 字节5-6
-                'epc': 'E2 82 78 83 00 00 00 00 00 88 00 00',  # 字节8-19
-                'tid': 'E2 82 78 83 20 00 00 00 00 88 3A CC',   # 字节20-31
-                'user': '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00',  # 字节32-47
-                'rssi': -65.7,           # 实际RSSI值（dBm）
-                'rssi_hex': 'FD6F',      # RSSI原始十六进制
-                'ant_num': 1,            # 天线号（字节50）
-                'ant_num_hex': '01',     # 天线号十六进制
-                'success': True/False,
-                'error': '错误信息'
-            }
-        """
-        result = {
-            'pc': '',
-            'epc': '',
-            'tid': '',
-            'user': '',
-            'rssi': 0.0,
-            'rssi_hex': '',
-            'ant_num': 0,
-            'ant_num_hex': '',
-            'success': False,
-            'error': ''
-        }
+                Returns:
+                    RFIDTag: 包含解析结果的标签对象
+                """
+        tag = RFIDTag()
+        success = tag.from_bytes(data)
 
-        try:
-            # 检查数据长度
-            if len(data) < 51:  # 需要至少51字节（包含天线号）
-                result['error'] = f'数据长度不足，需要至少51字节，实际收到{len(data)}字节'
-                return result
-
-            # 解析PC数据 (字节5-6，共2字节)
-            pc_data = data[5:7]
-            result['pc'] = ' '.join([f'{b:02X}' for b in pc_data])
-
-            # 解析EPC数据 (字节8-19，共12字节)
-            epc_data = data[7:19]
-            result['epc'] = ' '.join([f'{b:02X}' for b in epc_data])
-
-            # 解析TID数据 (字节20-31，共12字节)
-            tid_data = data[19:31]
-            result['tid'] = ' '.join([f'{b:02X}' for b in tid_data])
-
-            # 解析USER数据 (字节32-47，共16字节)
-            user_data = data[31:47]
-            result['user'] = ' '.join([f'{b:02X}' for b in user_data])
-
-            # 解析RSSI数据 (字节47-48，共2字节)
-            rssi_data = data[47:49]
-            result['rssi_hex'] = rssi_data.hex().upper()
-            result['rssi'] = self._parse_rssi(rssi_data)
-
-            # 解析天线号 (字节50，第51个字节)
-            ant_num_byte = data[49]
-            result['ant_num'] = ant_num_byte
-            result['ant_num_hex'] = f'{ant_num_byte:02X}'
-
-            result['success'] = True
-
-        except Exception as e:
-            result['error'] = f'解析RFID数据失败: {str(e)}'
-
-        return result
-
-    def _parse_rssi(self, rssi_bytes: bytes) -> float:
-        """
-        解析RSSI值（16位补码，实际值×10）
-        Args:
-            rssi_bytes: 2字节的RSSI数据
-        Returns:
-            float: 实际的RSSI值（dBm）
-        """
-        if len(rssi_bytes) < 2:
-            return 0.0
-        # 将2字节转换为有符号整数（补码）
-        rssi_int = int.from_bytes(rssi_bytes, byteorder='big', signed=True)
-        # 转换为实际值（除以10）
-        rssi_actual = rssi_int / 10.0
-        return rssi_actual
+        if success:
+            self.current_tag = tag
+            # 添加到历史记录
+            # self.tag_history.append(tag)
+            # # 限制历史记录大小
+            # if len(self.tag_history) > self.max_history_size:
+            #     self.tag_history.pop(0)
+        return tag
 
     def update_rfid_data(self, data: bytes):
         """根据二进制数据更新RFID数据"""
         print('update_rfid_data')
         # 根据你的实际协议实现
-        if len(data) >= 53:
-            # 更新文本框内容
-            # 解析RFID数据
-            result = self.process_rfid_data_epc_tid_user(data)
-            display_text = f"EPC: {result['epc']}\nTID: {result['tid']}\nUSER: {result['user']}\nRSSI: {result['rssi']}\nPC: {result['pc']}\nant_num: {result['ant_num']}"
-            if result['ant_num'] == 1:
+        tag = self.process_rfid_data_epc_tid_user(data)
+        # display_text = f"EPC: {result['epc']}\nTID: {result['tid']}\nUSER: {result['user']}\nRSSI: {result['rssi']}\nPC: {result['pc']}\nant_num: {result['ant_num']}"
+        if tag.success:
+            display_text = self._format_tag_list_display(tag)
+            if tag.antenna_num == 1:
                 self.update_element_text(self.fetch_text, display_text)
-            elif result['ant_num'] == 2:
-                # self.update_element_text(self.after_text, f"收到数据: {data.hex()}")
+            elif tag.antenna_num == 2:
                 self.update_element_text(self.after_text, display_text)
         pass
+
+    def _format_tag_display(self, tag: RFIDTag) -> str:
+        """格式化标签信息用于显示"""
+        return (f"EPC: {tag.epc}\n"
+                f"TID: {tag.tid}\n"
+                f"USER: {tag.user_data}\n"
+                f"RSSI: {tag.rssi:.1f} dBm\n"
+                f"天线: {tag.antenna_num}\n"
+                f"产品: {tag.product_name}\n"
+                f"生产企业: {tag.manufacturer}\n"
+                f"许可证: {tag.license_number}\n"
+                f"生产日期: {tag.production_date}\n"
+                f"批号: {tag.batch_number}\n"
+                f"包装: {tag.package_spec} {tag.package_method}\n"
+                f"数量: {tag.quantity}\n"
+                f"位置: {tag.longitude:.6f}°, {tag.latitude:.6f}°\n"
+                f"时间: {tag.timestamp}\n"
+                "=" * 50 + "\n")
+
+    def _format_tag_list_display(self, tag: RFIDTag) -> str:
+        """格式化标签信息用于显示"""
+        return (f"EPC: {tag.epc} "
+                f"TID: {tag.tid} "
+                f"USER: {tag.user_data} "
+                f"RSSI: {tag.rssi:.1f}dBm "
+                f"天线: {tag.antenna_num}\n")
 
     def add_message(self, message):
         """添加消息到消息框"""
