@@ -200,21 +200,32 @@ class RFIDProductionSystem:
         self.tray_load_entry.insert(0, "32")
         self.tray_load_entry.pack(side='left')
 
-        # 取标内容
-        tk.Label(tray_frame, text="取标内容:", font=("微软雅黑", 10),
-                 bg='white').grid(row=1, column=0, sticky='nw', padx=10, pady=10)
-        self.fetch_text = tk.Text(tray_frame, width=50, height=5, font=("微软雅黑", 10),
+        # 第二行：取标内容和贴标后内容放在同一行
+        row2_frame = tk.Frame(tray_frame, bg='white')
+        row2_frame.grid(row=1, column=0, columnspan=2, sticky='nsew', padx=10, pady=10)
+        tray_frame.rowconfigure(1, weight=1)  # 设置行权重
+
+        # 取标内容（左侧）
+        fetch_frame = tk.Frame(row2_frame, bg='white')
+        fetch_frame.pack(side='left', fill='both', expand=False, padx=(0, 10))
+
+        tk.Label(fetch_frame, text="取标内容:", font=("微软雅黑", 10),
+                 bg='white').pack(anchor='w', pady=(0, 5))
+        self.fetch_text = tk.Text(fetch_frame, height=4, width=65, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
         self.fetch_text.insert("1.0", "")
-        self.fetch_text.grid(row=1, column=1, padx=10, pady=10, sticky='w')
+        self.fetch_text.pack(fill='both', expand=True)
 
-        # 贴标后内容
-        tk.Label(tray_frame, text="贴标后内容:", font=("微软雅黑", 10),
-                 bg='white').grid(row=2, column=0, sticky='nw', padx=10, pady=10)
-        self.after_text = tk.Text(tray_frame, width=50, height=5, font=("微软雅黑", 10),
+        # 贴标后内容（右侧）
+        after_frame = tk.Frame(row2_frame, bg='white')
+        after_frame.pack(side='right', fill='both', expand=False, padx=(10, 0))
+
+        tk.Label(after_frame, text="贴标后内容:", font=("微软雅黑", 10),
+                 bg='white').pack(anchor='w', pady=(0, 5))
+        self.after_text = tk.Text(after_frame, height=4, width=65, font=("微软雅黑", 10),
                                   relief='solid', bd=1, wrap='word')
         self.after_text.insert("1.0", "")
-        self.after_text.grid(row=2, column=1, padx=10, pady=10, sticky='w')
+        self.after_text.pack(fill='both', expand=True)
 
     def create_production_stats_section(self):
         """创建生产统计区域（保持不变）"""
@@ -308,11 +319,11 @@ class RFIDProductionSystem:
         """切换产线运行状态 - 主要修改部分"""
         self.is_running = not self.is_running
         if self.is_running:
-            self.run_button.config(text="停止产线", bg='#f39c12')
-            self.normal_status.config(fg='#27ae60')
-            self.abnormal_status.config(fg='#bdc3c7')
-            self.error_label.config(text="运行中", fg='#27ae60')
-            self.add_message("产线开始运行")
+            # self.run_button.config(text="停止产线", bg='#f39c12')
+            # self.normal_status.config(fg='#27ae60')
+            # self.abnormal_status.config(fg='#bdc3c7')
+            # self.error_label.config(text="运行中", fg='#27ae60')
+            # self.add_message("产线开始运行")
 
             # 发送开始生产指令到RFID读写器
             if self.rfid_reader.get_connection_status():
@@ -405,7 +416,7 @@ class RFIDProductionSystem:
             if isinstance(data, bytes):
                 # 处理二进制数据
                 hex_str = ' '.join([f'{b:02X}' for b in data])
-                self.add_message(f"收到RFID数据: {hex_str}")
+                # self.add_message(f"收到RFID数据: {hex_str}")
                 self.process_rfid_data(data)
             elif isinstance(data, dict):
                 # 处理JSON数据
